@@ -145,12 +145,67 @@ create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
 }
 
 
-epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL, plot=F) {
+#--- epiCHAOS with count correction per chromosome
+compute.eITH.cancer <- function(x) {  # x should be a list of scATAC datasets with equal dimensions (n cells/cols and n loci/rows)
+  
+  chromosomes <- rownames(x[[1]]) %>% str_split("-|_|:") %>% lapply("[", 1) %>% unlist() %>% unique()
+  
+  # dists will hold jaccard distances, het.chr will hold per-chromoosme heterogeneity scores, coverage will hold per chromosome coverage
+  het.chr <- dists <- coverage <- list()
+  for (chr in paste0(chromosomes, ":")) {
+    
+    
+    for (d in names(x)) { 
+      
+      print(paste0("calculating eITH for ", d, " ", chr))
+      temp <- x[[d]] %>% as.matrix() %>% as.data.frame()
+      
+      # subset atac matrix for selected chromosome
+      temp <- temp[grepl(chr, rownames(temp)),]
+      
+      #if (sum(temp)==0) { next }
+      #temp <- temp[,colSums(temp)>0]
+      
+      # compute pairwise Jaccard distances
+      jac <- corrr::colpair_map(temp, jaccard, center=T)
+      jac <- apply(jac, 1, as.numeric)
+      
+      # get mean of pairwise jaccard indices
+      dists[[d]] <- colMeans(jac, na.rm = T) %>% mean()
+      coverage[[d]] <- colMeans(temp) %>% mean()
+      
+    }
+    
+    # regress out counts
+    fit <- lm(unlist(dists)~unlist(coverage))
+    
+    
+    #--- create dataframe to hold heterogeneity scores
+    het.chr[[chr]] <- (fit$residuals - min(fit$residuals)) / (max(fit$residuals) - min(fit$residuals)) 
+    
+  }
+  
+  require(plyr)
+  het <-  rbind.fill(lapply(het.chr,function(y){as.data.frame(t(y),stringsAsFactors=FALSE)})) %>% colMeans(na.rm = T)
+  het <- data.frame(het=het, state=names(het))
+  
+  #--- convert values to a range of 0,1
+  het$het <- (het$het - min(het$het)) / (max(het$het) - min(het$het))  # Scale to a range of 0-1
+  het$het <- 1-het$het
+  
+  
+  return(het)
+  
+}
+
+
+# compute epiCHAOS if given a counts matrix and metadata
+epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL, plot=F, cancer=F) {
   
   print("creating group matrices")
   matrices <- create.group.matrices(counts, meta, colname, n, index)
   print("computing epiCHAOS scores")
-  het <- compute.eITH(matrices)
+  het <- ifelse (cancer==T, compute.eITH.cancermatrices, compute.eITH(matrices))
   
   if (plot) {
     p <- ggplot2::ggplot(het, aes(x = reorder(state, mean.het), y = mean.het+0.01)) +
@@ -164,3 +219,6 @@ epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL,
     }
   
 }
+
+
+

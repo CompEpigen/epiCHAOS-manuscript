@@ -11,4 +11,4 @@ Required: (i) a single cell epigenomics dataset in binarised matrix form, e.g. a
 1. Pairwise chance-corrected Jaccard indices are calculated between all cells in each group/cluster
 2. The mean of all pairwise indices is computed per cluster as a raw heterogeneity score. Scores are negated so that a higher score refects higher heterogeneity.
 3. Raw heterogeneity scores are adjusted for differences in total counts between groups by fitting a linear regression model and taking the residuals of the model as an adjusted score
-5. Scores are normalised to a range of 0-1
+5. Scores are normalised to a range of 0-1 and subtracted from one so that a higher score indicates higher cell-to-cell heterogeneity

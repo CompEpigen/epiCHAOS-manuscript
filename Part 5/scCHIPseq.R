@@ -11,10 +11,6 @@ set.seed(10)
 path.1 <- "/omics/groups/OE0219/internal/KatherineK/data/scCHIP/Breastcancer/GSM3290889_CountTable_HBCx-95_scChIP_H3K27me3_hg38.txt"
 path.2 <- "/omics/groups/OE0219/internal/KatherineK/data/scCHIP/Breastcancer/GSM3290890_CountTable_HBCx-95-CapaR_scChIP_H3K27me3_hg38.txt"
 
-# Tamoxifen resistance
-# path.1 <- "/omics/groups/OE0219/internal/KatherineK/data/scCHIP/Breastcancer/GSM3290891_CountTable_HBCx-22_scChIP_H3K27me3_hg38.txt"
-# path.2 <- "/omics/groups/OE0219/internal/KatherineK/data/scCHIP/Breastcancer/GSM3290892_CountTable_HBCx-22-TamR_scChIP_H3K27me3_hg38.txt"
-
 
 datamatrix=NULL
 annot_raw = NULL

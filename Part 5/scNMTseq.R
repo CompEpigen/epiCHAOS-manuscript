@@ -2,7 +2,9 @@
 #--- download scNMT-seq DNA methylation data from Argelaguet et al. 2019
 #--- processed data are available within the SingleCellMultiModal R package
 
-BiocManager::install("SingleCellMultiModal")
+set.seed(10)
+
+#BiocManager::install("SingleCellMultiModal")
 library(SingleCellMultiModal)
 library(MultiAssayExperiment)
 
@@ -19,6 +21,7 @@ nmt@colData$stage %>% table()
 nmt@colData$stage_lineage %>% table()
 
 gg <- list()
+het.list <- list()
 for (i in c("met_promoter", "met_genebody", "met_cgi")) {
   temp <- nmt@ExperimentList@listData[[i]]
   temp[is.na(temp)] <- 0
@@ -36,6 +39,7 @@ for (i in c("met_promoter", "met_genebody", "met_cgi")) {
   het$group <- ifelse(het$state=="Epiblast", "epiblast", "other")
   het$state <- het$state %>% str_replace("_", " ")
   
+  het.list[[i]] <- het
   gg[[i]] <- ggplot(het, aes(x = reorder(state, mean.het), y = mean.het+0.01, fill=group)) +
     geom_bar(stat="identity", position = "dodge", alpha=0.8, width = 0.7)+
     scale_fill_manual(values = rev(c("black", "steelblue4")))+
@@ -46,6 +50,11 @@ for (i in c("met_promoter", "met_genebody", "met_cgi")) {
 }
 
 library(ggpubr)
+
+het.list$met_promoter %>% arrange(desc(mean.het)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scNMTseq_meth_promoters.csv")
+het.list$met_genebody %>% arrange(desc(mean.het)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scNMTseq_meth_genebody.csv")
+het.list$met_cgi %>% arrange(desc(mean.het)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scNMTseq_meth_cgi.csv")
+
 
 pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 5/barplot_gastrulation_scNMTseq.pdf", 6, 3)
 plot <- ggpubr::ggarrange(plotlist = gg, ncol=3, legend=F)
@@ -60,22 +69,25 @@ dev.off()
 #--- compare epiCHAOS on methylation vs ATAC from same cells
 
 # met
-temp <- nmt@ExperimentList@listData$met_genebody
-temp[is.na(temp)] <- 0
-temp[temp<0.2] <- 0
-temp[temp>0] <- 1
+# temp <- nmt@ExperimentList@listData$met_genebody
+# temp[is.na(temp)] <- 0
+# temp[temp<0.2] <- 0
+# temp[temp>0] <- 1
+# 
+# datasets <- list()
+# for (celltype in na.omit(unique(nmt@colData$lineage10x_2))) {
+#   ids <- nmt@colData$cellID[nmt@colData$lineage10x_2==celltype]
+#   if (length(ids)<40) { next }
+#   datasets[[celltype]] <- temp[,colnames(temp) %in% ids]
+# }
+# 
+# het <- compute.eITH(datasets)
+het <- read.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scNMTseq_meth_promoters.csv")
 
-datasets <- list()
-for (celltype in na.omit(unique(nmt@colData$lineage10x_2))) {
-  ids <- nmt@colData$cellID[nmt@colData$lineage10x_2==celltype]
-  if (length(ids)<40) { next }
-  datasets[[celltype]] <- temp[,colnames(temp) %in% ids]
-}
 
-het <- compute.eITH(datasets)
 
 # atac
-temp <- nmt@ExperimentList@listData$acc_genebody
+temp <- nmt@ExperimentList@listData$acc_promoter
 temp[is.na(temp)] <- 0
 temp[temp<0.2] <- 0
 temp[temp>0] <- 1
@@ -88,12 +100,11 @@ for (celltype in na.omit(unique(nmt@colData$lineage10x_2))) {
 }
 
 het2 <- compute.eITH(datasets)
-plot(het$mean.het, het2$mean.het)
+het2$state <- het2$state %>% str_replace("_", " ")
 
 het <- merge(het, het2, by="state")
-colnames(het)[2:3] <- c("DNAm", "ATAC")
+colnames(het)[c(3, 5)] <- c("DNAm", "ATAC")
 fit <- lm(het$DNAm~het$ATAC)
-het$state <- het$state %>% str_replace_all("_", " ")
 
 pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 5/scatterplot_DNAm_vs_ATAC_epiCHAOS_gastrulation.pdf", 4, 3)
 ggplot(het, aes(x=DNAm, y=ATAC, label=state)) +

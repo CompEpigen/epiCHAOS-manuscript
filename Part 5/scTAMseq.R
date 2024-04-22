@@ -5,6 +5,8 @@ setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/scTAM")
 library(Seurat)
 library(pheatmap)
 
+set.seed(10)
+
 source("/omics/groups/OE0219/internal/KatherineK/ATACseq/eITH-test-scripts/jaccard.R")
 
 scTAM <- readRDS("/omics/groups/OE0219/internal/KatherineK/data/scTAM/seurat_for_figshare.rds")
@@ -15,21 +17,19 @@ mat[1:10,1:10]
 datasets <- list()
 for (i in unique(scTAM@meta.data$CellType)) {
   ids <- scTAM@meta.data[scTAM@meta.data$CellType==i,] %>% rownames()
-  #if (length(ids)>500) { 
-  ids <- ids %>% sample(100, replace = F)
-  #}
+  if (length(ids)>200) { 
+  ids <- ids %>% sample(200, replace = F)
+  }
   datasets[[i]] <- mat[,ids]
 }
 
 lapply(datasets, dim)
 
 het <- compute.eITH(datasets)
+saveRDS(het, "epiCHAOS_scores.Rds")
+het %>% arrange(desc(het)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scTAMseq_hemato.csv")
 
-ggplot(het, aes(y=mean.het, x=reorder(state, mean.het))) +
-  geom_dotplot(color="black")+
-  labs( x="", y="heterogeneity score") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
 
 for (i in unique(het$state)) {
   scTAM@meta.data$epiCHAOS[scTAM@meta.data$CellType==i] <- het$mean.het[het$state==i]

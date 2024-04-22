@@ -7,7 +7,6 @@
 
 setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/")
 
-source("/omics/groups/OE0219/internal/KatherineK/ATACseq/eITH-test-scripts/jaccard.R")
 
 library(ArchR)
 library(BSgenome.Hsapiens.UCSC.hg38)
@@ -24,7 +23,7 @@ names(fragments) <- list.files("/omics/groups/OE0219/internal/KatherineK/data/sc
 ArrowFiles <- createArrowFiles(
   inputFiles = fragments,
   sampleNames = names(fragments),
-  minTSS = 6, #Dont set this too high because you can always increase later
+  minTSS = 6, 
   minFrags = 3000,
   addTileMat = TRUE,
   addGeneScoreMat = TRUE
@@ -179,32 +178,6 @@ het <- compute.eITH(datasets)
 
 saveRDS(het, "epiCHAOS_scores_copy_corrected_all_peaks.Rds")
 
-# temp <- merge(lica@embeddings$UMAP$df, lica@cellColData, by=0) %>% merge(het, by.x="Clusters", by.y="state") %>% data.frame()
-# colnames(temp)[3:4] <- c("UMAP1", "UMAP2")
-# ggplot(temp, aes(x=UMAP1, y=UMAP2, color=Clusters)) +
-#   geom_point(size=0.1, alpha=0.7)+
-#   theme_classic()
-# 
-# ggplot(temp, aes(x=UMAP1, y=UMAP2, color=mean.het)) +
-#   geom_point(size=0.1, alpha=0.7)+
-#   scale_color_gradient(low="lightblue", high="darkblue")+
-#   theme_classic()
-# 
-# temp <- merge(meta, unique(het[,c("state", "mean.het")]), by.x="Clusters", by.y="state")
-# 
-# p1 <- ggplot(temp, aes(x=UMAP1, y=UMAP2, color=Predicted_Cell_Type)) +
-#   geom_point(size=0.1, alpha=0.7)+
-#   lims(x=c(-10,7), y=c(-5, 12)) +
-#   scale_color_brewer(palette = "Set3")+
-#   theme_classic()
-# 
-# p2 <- ggplot(temp, aes(x=UMAP1, y=UMAP2, color=mean.het)) +
-#   geom_point(size=0.1, alpha=0.7)+
-#   theme_classic()+
-#   lims(x=c(-10,7), y=c(-5, 12)) +
-#   scale_color_distiller(palette = "Blues", direction = 1)
-# scale_color_viridis()
-# 
 
 #--- compare epiCHAOS in peaks vs windows matrix
 mat <- getMatrixFromProject(

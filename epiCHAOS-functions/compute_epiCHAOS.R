@@ -35,28 +35,29 @@ compute.eITH <- function(x) {
   #--- fit a linear regression model of raw epiCHAOS scores against the total count of the matrices snd take the residuals of the model as a count corrected score
   avg.count <- lapply(x, colMeans) %>% lapply(mean) %>% unlist()
   fit <- lm(het$het~avg.count)
-  het$het.adj <- residuals(fit)
+  het$mean.het <- residuals(fit)
   
   #--- convert values to a range of 0,1
   het$het.raw <- (het$het - min(het$het)) / (max(het$het) - min(het$het))
-  het$het.adj <- (het$het.adj - min(het$het.adj)) / (max(het$het.adj) - min(het$het.adj))
+  het$mean.het <- (het$mean.het - min(het$mean.het)) / (max(het$mean.het) - min(het$mean.het))
   
   #--- negate values so that higher score reflects higher heterogeneity
   het$het.raw <- 1-het$het.raw
-  het$het.adj <- 1-het$het.adj
+  het$mean.het <- 1-het$mean.het
+  
   
   #--- return a dataframe with raw and count-adjusted epiCHAOS scores for each group
-  return(het[,c("het.adj", "het.raw", "state")])
+  return(het[,c("mean.het", "het.raw", "state")])
   
 }
 
 
 
-# counts: a counts matrix representing e.g. a peaks by cells matrix in the case of scATAC data. The counts matrix will be binarised if not already.
-# meta: metadata including the column on which the data should be grouped, e.g. cluster or celltype.
-# colname: the name of the column in "meta" on which to group the data e.g. "cluster" or "celltype". If not specified this defaults the the first column in "meta".
-# n: the number of cells to subset for each group/cluster. This defults to 100.
-# index: the rows in counts on which to subset the counts matrix. If not provided the whole counts matrix will be used by default. Otherwise "index" may be specified as either a (i) vector of numerical indices, (ii) a vector or names corresponding to the rownames of interest in "counts"
+#- counts: a counts matrix representing e.g. a peaks by cells matrix in the case of scATAC data. The counts matrix will be binarised if not already.
+#- meta: metadata including the column on which the data should be grouped, e.g. cluster or celltype.
+#- colname: the name of the column in "meta" on which to group the data e.g. "cluster" or "celltype". If not specified this defaults the the first column in "meta".
+#- n: the number of cells to subset for each group/cluster. This defults to 100.
+#- index: the rows in counts on which to subset the counts matrix. If not provided the whole counts matrix will be used by default. Otherwise "index" may be specified as either a (i) vector of numerical indices, (ii) a vector or names corresponding to the rownames of interest in "counts"
 
 create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
 
@@ -86,11 +87,14 @@ create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
 
 
 #--- function to compute epiCHAOS with count correction per chromosome, for application to cancer datasets where large copy number alterations may result in differences in total counts per chromosome
+
+#- input is a list of binarised matrices
+#- rownames in each matrix are the chromosome, start and end coordinates separated by ":", "-" or "_"
 compute.eITH.cancer <- function(x) {
   
   chromosomes <- rownames(x[[1]]) %>% str_split("-|_|:") %>% lapply("[", 1) %>% unlist() %>% unique()
   
-  # dists will hold jaccard distances, het.chr will hold per-chromoosme heterogeneity scores, coverage will hold per chromosome coverage
+  # "dists" will hold jaccard distances, "het.chr" will hold per-chromoosme heterogeneity scores, coverage will hold per chromosome counts
   het.chr <- dists <- coverage <- list()
   for (chr in paste0(chromosomes, ":")) {
     
@@ -159,7 +163,7 @@ epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL,
   if (plot) {
     
     #--- return a barplot of epiCHAOS scores
-    p <- ggplot2::ggplot(het, aes(x = reorder(state, het.adj), y = het.adj+0.01)) +
+    p <- ggplot2::ggplot(het, aes(x = reorder(state, mean.het), y = mean.het+0.01)) +
       geom_bar(stat="identity", position = "dodge", alpha=0.8, width = 0.6)+
       labs(x="", y="epiCHAOS")+
       theme_classic() +

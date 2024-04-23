@@ -1,14 +1,20 @@
 
 # EpiCHAOS
 
-A metric for calculating cell-to-cell heterogeneity in single-cell epigenomics data
+EpiCHAOS is a metric for calculating cell-to-cell heterogeneity in single-cell epigenomics data. EpiCHAOS can be applied to any single cell epigenomics dataset (e.g. scATAC-seq, scChIP-seq, scNMT-seq, scTAM-seq) in binarised matrix form.
+
+EpiCHAOS scores are assigned per cluster (or otherwise defined group of single cells, e.g. cell type, treatment condition). Scores will range from 0-1 where higher scores indicate higher cell-to-cell heterogeneity. 
 
 
 #### Calculation of epiCHAOS scores:  
 
-Required: (i) a single cell epigenomics dataset in binarised matrix form, e.g. a peaks-by-cells or tiles-by-cells matrix in the case of scATAC data, (ii) cell annotation matching column names to clusters, cell types or other groups on which heterogenetiy scores should be computed
+Calculation of epiCHAOS scores requires (i) a single cell epigenomics dataset in binarised matrix form, e.g. a peaks-by-cells or tiles-by-cells matrix in the case of scATAC-seq data, (ii) cell annotation matching column names to clusters, cell types or other groups on which heterogenetiy scores should be computed.
 
-1. Pairwise chance-corrected Jaccard indices are calculated between all cells in each group/cluster
-2. The mean of all pairwise indices is computed per cluster as a raw heterogeneity score. Scores are negated so that a higher score refects higher heterogeneity.
-3. Raw heterogeneity scores are adjusted for differences in total counts between groups by fitting a linear regression model and taking the residuals of the model as an adjusted score
+R functions for computing epiCHAOS scores can be found in "epiCHAOS-functions/compute_epiCHAOS". The main function here is "epiCHAOS()" which takes a counts matrix and cell annotation metadata as input and returns a dataframe of epiCHAOS scores for each group/cluster. 
+
+#### Description of epiCHAOS calculation
+1. Single-cell matrix is binarised if not already
+2. Pairwise chance-corrected Jaccard indices are calculated between all cells in each group/cluster
+3. The mean of all pairwise indices is computed per cluster as a raw heterogeneity score
+4. Raw heterogeneity scores are adjusted for differences in total counts between groups by fitting a linear regression model and taking the residuals of the model as an adjusted score
 5. Scores are normalised to a range of 0-1 and subtracted from one so that a higher score indicates higher cell-to-cell heterogeneity

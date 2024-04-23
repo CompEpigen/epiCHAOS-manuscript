@@ -7,6 +7,9 @@
 
 setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/")
 
+data.dir <- "/omics/groups/OE0219/internal/KatherineK/data/scATAC/Liver-Cancer/"
+analysis.dir <- "/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/"
+
 
 library(ArchR)
 library(BSgenome.Hsapiens.UCSC.hg38)
@@ -14,10 +17,10 @@ library(BSgenome.Hsapiens.UCSC.hg38)
 addArchRThreads(threads = 16)
 
 addArchRGenome("hg38")
-fragments <- paste0("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Liver-Cancer/",
-                    list.files("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Liver-Cancer/", pattern = "Samples.tsv.gz$"))
+fragments <- paste0(file.path(data.dir, "scATAC/Liver-Cancer/"),
+                    list.files(file.path(data.dir, "scATAC/Liver-Cancer/"), pattern = "Samples.tsv.gz$"))
 
-names(fragments) <- list.files("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Liver-Cancer/", pattern = "Samples.tsv.gz$") %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
+names(fragments) <- list.files(file.path(data.dir, "scATAC/Liver-Cancer/"), pattern = "Samples.tsv.gz$") %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
 
 # create arrow files
 ArrowFiles <- createArrowFiles(
@@ -42,7 +45,7 @@ doubScores <- addDoubletScores(
 # create an ArchR project
 lica <- ArchRProject(
   ArrowFiles = ArrowFiles,
-  outputDirectory = "/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/",
+  outputDirectory = file.path(analysis.dir, "malignant-subset/"),
   copyArrows = TRUE #This is recommened so that if you modify the Arrow files you have an original copy for later usage.
 )
 
@@ -53,7 +56,7 @@ saveArchRProject(ArchRProj = lica, load = FALSE)
 lica <- filterDoublets(lica)
 
 # exclude cells from non-malignant clusters
-celltypes <- read.table("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Liver-Cancer/celltypes.txt", header = T, sep="\t")
+celltypes <- read.table(file.path(analysis.dir, "celltypes.txt"), header = T, sep="\t")
 exclude.cells <- celltypes$Cell_Barcode[celltypes$Predicted_Cell_Type!="Malignant cells"]
 exclude.cells <- paste0("GSE227265_fragments_AllSamples#", exclude.cells) %>% intersect(lica$cellNames)
 malignant.cells <- setdiff(lica$cellNames, exclude.cells)
@@ -149,12 +152,6 @@ lica <- loadArchRProject()
 mat <- readRDS("peaks_matrix.Rds")
 names(mat@rowRanges) <- 1:length(mat@rowRanges)
 
-# select sites corresponding to hg38 promoters
-# require("TxDb.Hsapiens.UCSC.hg38.knownGene")
-# txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
-# promoters <- promoters(genes(txdb), upstream = 1500, downstream = 500)
-# promoter.peaks <- subsetByOverlaps(mat@rowRanges, promoters) %>% names() %>% as.numeric()
-#mat <- mat[promoter.peaks,]
 row.names <- mat@rowRanges %>% paste0()
 dim(mat)
 mat <- mat@assays@data$PeakMatrix
@@ -268,8 +265,6 @@ for (i in clusters) {
 
 lapply(datasets, dim)
 
-
-### source corrected eper chromosome function
 
 # compute heterogeneity scores
 het <- compute.eITH(datasets)

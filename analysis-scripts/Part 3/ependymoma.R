@@ -10,8 +10,11 @@ library(stringr)
 
 set.seed(10)
 
+data.dir <- "/omics/groups/OE0219/internal/KatherineK/data/scATAC/Ependymoma/"
+analysis.dir <- 
+
 #--- scATAC from ependymoma
-epn <- readRDS("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Ependymoma/GSE206579_snATAC_PF_EPN_Seurat.rds")
+epn <- readRDS(file.path(data.dir, "GSE206579_snATAC_PF_EPN_Seurat.rds"))
 
 # check umap
 DimPlot(epn)
@@ -76,17 +79,8 @@ p3 <- ggplot(temp, aes(x=reorder(state, mean.het), y=mean.het, fill=malignant)) 
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90))
 
-# pdf("umaps_and_barplots_eICH_vs_celltypes.pdf", 13, 3)
-# ggarrange(p1,p2,p3, ncol=3, widths = c(1, 0.8, 0.8))
-# dev.off()
 
-pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 3/umap_ependymoma_celltypes.pdf", 6, 4)
-p2
-dev.off()
-
-svg("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 3/barplot_ependymoma_celltypes.svg", 6, 3.5)
-p3
-dev.off()
+ggarrange(p1,p2,p3, ncol=3, widths = c(1, 0.8, 0.8))
 
 
 #--- try clustering the cells and performing eITH calculation on the clusters

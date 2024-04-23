@@ -10,9 +10,10 @@ library(stringr)
 library(ggpubr)
 library(corrplot)
 
-source("~/Scripts/miscellaneous/myfunctions.R")
 
-setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/")
+analysis.dir <- "/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/"
+
+setwd(analysis.dir)
 
 #--- load ArchR project
 lica <- readRDS("Save-ArchR-Project.rds")

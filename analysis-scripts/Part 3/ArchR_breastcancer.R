@@ -1,7 +1,10 @@
 
 #--- scATAC data from breast cancer samples from : https://pubmed.ncbi.nlm.nih.gov/35676392/
 
-setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/")
+data.dir <- "/omics/groups/OE0219/internal/KatherineK/data/scATAC/Kumegawa_Brca"
+analysis.dir <- "/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer"
+
+setwd(analysis.dir)
 
 library(ArchR)
 library(BSgenome.Hsapiens.UCSC.hg19)
@@ -10,15 +13,16 @@ library(BSgenome.Hsapiens.UCSC.hg19)
 addArchRThreads(threads = 16)
 
 addArchRGenome("hg19")
-fragments <- paste0("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Kumegawa_Brca/",
-                    list.files("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Kumegawa_Brca/", pattern = "fragments.tsv.gz$"))
-names(fragments) <- list.files("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Kumegawa_Brca/", pattern = "fragments.tsv.gz$") %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
+
+# path tp fragments files
+fragments <- paste0(data.dir, list.files(data.dir, pattern = "fragments.tsv.gz$"))
+names(fragments) <- list.files(data.dir, pattern = "fragments.tsv.gz$") %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
 
 # create arrow files
 ArrowFiles <- createArrowFiles(
   inputFiles = fragments,
   sampleNames = names(fragments),
-  minTSS = 4, #Dont set this too high because you can always increase later
+  minTSS = 4, 
   minFrags = 1000,
   addTileMat = TRUE,
   addGeneScoreMat = TRUE
@@ -37,7 +41,7 @@ doubScores <- addDoubletScores(
 # create an ArchR project
 brca <- ArchRProject(
   ArrowFiles = ArrowFiles,
-  outputDirectory = "/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/",
+  outputDirectory = analysis.dir,
   copyArrows = TRUE #This is recommened so that if you modify the Arrow files you have an original copy for later usage.
 )
 
@@ -194,7 +198,7 @@ plotEmbedding(brca, colorBy = "geneScoreMatrix", name = "CXCL12")
 
 
 #--- subset the object for epithelial cells (cluster 13:24) and perform clustering again on the subseted object
-brca <- loadArchRProject("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/")
+brca <- loadArchRProject(analysis.dir)
 epith.cells <- brca$cellNames[brca$Clusters %in% paste0("C", 13:24)]
 
 epith <- subsetCells(ArchRProj = brca, cellNames = epith.cells)
@@ -239,7 +243,7 @@ ggAlignPlots(p1, p2, type = "h")
 plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters_epithelial.pdf", ArchRProj = epith, addDOC = FALSE, width = 5, height = 5)
 
 #--- load the subsetted object with only epithelial cells
-brca <- loadArchRProject("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial/")
+brca <- loadArchRProject(file.path(analysis.dir,"epithelial/"))
 
 # add group coverages for peak calling
 brca <- addGroupCoverages(brca, force = T)
@@ -266,7 +270,7 @@ mat <- getMatrixFromProject(
   logFile = createLogFile("getMatrixFromProject")
 )
 
-saveRDS(mat, "/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial/peaks_matrix.Rds")
+saveRDS(mat, file.path(analysis.dir, "epithelial/peaks_matrix.Rds"))
 
 # save gene score matrix unbinarised
 mat <- getMatrixFromProject(
@@ -279,7 +283,7 @@ mat <- getMatrixFromProject(
   logFile = createLogFile("getMatrixFromProject")
 )
 
-saveRDS(mat, "/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial/gene_score_matrix.Rds")
+saveRDS(mat, file.path(analysis.dir, "epithelial/gene_score_matrix.Rds"))
 saveArchRProject(ArchRProj = brca, load = FALSE)
 
 

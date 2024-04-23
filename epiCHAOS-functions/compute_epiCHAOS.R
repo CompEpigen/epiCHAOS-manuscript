@@ -1,4 +1,9 @@
 
+#--- required packages
+#install.packages(c("corrr", "jaccard", "dplyr", "magrittr", "plyr", "ggplot2"))
+library(magrittr)
+
+
 #--- function to compute epiCHAOS on a list of binarised single cell epigenomics matrices. Input is a list of binarised scATAC datasets with equal rows.
 compute.eITH <- function(x) {  
   

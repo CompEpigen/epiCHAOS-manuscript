@@ -5,7 +5,7 @@
 #--- rna
 rna <- readRDS("/omics/groups/OE0219/internal/KatherineK/data/scATAC/Granja2019/scRNA-Healthy-Hematopoiesis-191120.rds")
 
-# subset bone marrow derived cells
+#--- subset bone marrow derived cells
 rna <- rna[,grepl("BMMC", rna$Group)]
 table(rna$Group)
 

@@ -1,15 +1,11 @@
 
-#--- #--- In this script we compute epiCHAOS scores per tissue and per celltype using the human pan-tissue scATAC atlas from https://descartes.brotmanbaty.org/bbi/human-chromatin-during-development/
+#--- script for computation of epiCHAOS scores per tissue and per celltype using the human pan-tissue scATAC atlas from https://descartes.brotmanbaty.org/bbi/human-chromatin-during-development/ (relating to figure S2)
 
-setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/cell-mixtures/")
-
-# epiCHAOS function
-source("/omics/groups/OE0219/internal/KatherineK/ATACseq/eITH-test-scripts/jaccard.R")
-
+#--- required packages
 library(Seurat)
 library(magrittr)
 
-# # collect a list where each element contains 100 cells of each cell type
+#--- data were downloaded in .rds files, one per tissue. Since the data are large, below we collect a list where each element contains 100 cells of each cell type and save those for downstream analysis
 # datasets <- list()
 # for (i in list.files("/omics/groups/OE0219/internal/KatherineK/data/scATAC/pan-tissue-descartes/", pattern = "seurat")) {
 # 
@@ -28,12 +24,16 @@ library(magrittr)
 # 
 # saveRDS(datasets, "/omics/groups/OE0219/internal/KatherineK/data/scATAC/pan-tissue-descartes/atac_list_celltypes.Rds")
 
+#--- load the datasets from above - a list of scATAC-seq matrices, one for each cell/tissue type
 datasets <- readRDS("/omics/groups/OE0219/internal/KatherineK/data/scATAC/pan-tissue-descartes/atac_list_celltypes.Rds")
 
+#--- subset 50,000 rows (peaks) for ease of computation
 select.rows <- sample(nrow(datasets[[1]]), 50000)
 for (i in names(datasets)) {
   temp <- datasets[[i]]
   temp <- temp[select.rows,1:min(c(ncol(temp), 100))]
+  
+  #--- binarise the data
   temp[temp>1] <- 1
   datasets[[i]] <- temp
 }
@@ -41,9 +41,13 @@ for (i in names(datasets)) {
 length(datasets)
 lapply(datasets, dim)
 
+#--- compute epiCHAOS scores
 het <- compute.eITH(datasets)
 
+#--- check result
 het %>% arrange(mean.het)
+
+#--- add labels and adjust names for plotting
 het$label <- ""
 het$label[grepl("placenta", het$state)] <-  "placenta"
 het$label[grepl("cerebellum", het$state)] <-  "neural"
@@ -51,8 +55,10 @@ het$label[grepl("cerebrum", het$state)] <-  "neural"
 het <- het[!grepl("Unknown", het$state),]
 het$state <- het$state %>% str_remove("_filtered.seurat.for_website.RDS")
 
+#--- save scores
 saveRDS(het, file = "epiCHAOS_scores_per_celltype.Rds")
 
+#--- save plots
 svg("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Supplementary/S2/barplot_epiCHAOS_descartes_percelltype.svg", 10, 4)
 ggplot(het, aes(y=mean.het, x=reorder(state, mean.het), color=label, fill=label)) +
   geom_bar(size=1,  stat="identity", width=0.3)+

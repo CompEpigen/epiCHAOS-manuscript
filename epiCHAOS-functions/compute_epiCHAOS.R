@@ -67,7 +67,6 @@ compute.eITH <- function(x) {
 create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
 
   meta$group <- meta[,colname]
-  counts <- na.omit(counts)
   
   #--- if row indices are provided, subset the counts matrix for the specified rows
   if (index) { counts <- counts[index, ] }

@@ -1,19 +1,19 @@
-#--- test epiCHAOS on scTAM-seq
 
-setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/scTAM")
+#--- test epiCHAOS on scTAM-seq from mouse hematopoiesis (Scherer et al. 2024)
 
 library(Seurat)
 library(pheatmap)
 
 set.seed(10)
 
-source("/omics/groups/OE0219/internal/KatherineK/ATACseq/eITH-test-scripts/jaccard.R")
-
+#--- load scTAM data as seurat object downloaded from figshare
 scTAM <- readRDS("/omics/groups/OE0219/internal/KatherineK/data/scTAM/seurat_for_figshare.rds")
 
+#--- extract single-cell methylation data as matrix
 mat <- scTAM@assays$DNAm@counts %>% as.matrix()
 mat[1:10,1:10]
 
+#--- create matrix per cell type for epiCHAOS calculation
 datasets <- list()
 for (i in unique(scTAM@meta.data$CellType)) {
   ids <- scTAM@meta.data[scTAM@meta.data$CellType==i,] %>% rownames()
@@ -25,17 +25,20 @@ for (i in unique(scTAM@meta.data$CellType)) {
 
 lapply(datasets, dim)
 
+#--- compute epiCHAOS scores
 het <- compute.eITH(datasets)
-saveRDS(het, "epiCHAOS_scores.Rds")
-het %>% arrange(desc(het)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scTAMseq_hemato.csv")
+
+# save scores
+#saveRDS(het, "epiCHAOS_scores.Rds")
+#het %>% arrange(desc(het)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_scTAMseq_hemato.csv")
 
 
-
+#--- add annotation for epiCHAOS scores to metadata
 for (i in unique(het$state)) {
   scTAM@meta.data$epiCHAOS[scTAM@meta.data$CellType==i] <- het$mean.het[het$state==i]
 }
 
-
+#--- plot cell types and heterogeneity scores in umaps & barplots
 p1 <- DimPlot(scTAM, label=T, label.size = 3) + scale_color_brewer(palette = "Set3") + labs(x="UMAP1", y="UMAP2")
 p2 <- FeaturePlot(scTAM, features = "epiCHAOS") + scale_color_distiller(palette = "Blues", direction = 1, values = c(-0.1, 1)) + labs(x="UMAP1", y="UMAP2")
 

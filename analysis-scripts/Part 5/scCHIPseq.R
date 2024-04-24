@@ -1,4 +1,7 @@
 
+#--- testing epiCHAOS in single cell ChIP data from breast cancer cells sensitive / resistant to Capecitabine (Grosselin et al. 2019)
+
+# *** the below code for analysis of the scCHIP-seq data were adapted from https://github.com/vallotlab/scChIPseq ***
 
 ##Importing packages
 library(scater)
@@ -112,7 +115,7 @@ mat[,grepl("sensitive", colnames(mat))] %>% dim()
 
 set.seed(11)
 
-#--- subsample groups of 100 cells from each condition
+#--- subsample groups of 100 cells from each condition for epiCHAOS calculation
 datasets <- list()
 for (i in 1:10) {
   samples <- sample(ncol(mat[,grepl("resistant", colnames(mat))]), 100) %>% as.numeric()
@@ -127,23 +130,13 @@ lapply(datasets, dim)
 lapply(datasets, sum)
 
 
-#--- epiCHAOS
-source("/omics/groups/OE0219/internal/KatherineK/ATACseq/eITH-test-scripts/jaccard.R")
+#--- compute epiCHAOS scores
 het <- compute.eITH(datasets)
 het$group <- "resistant"
 het$group[grepl("sensitive", het$state)] <- "sensitive"
 het$state <- het$state %>% str_replace("resistant", "R") %>% str_replace("sensitive", "S")
-boxplot(het$mean.het~het$group)
 
-# for Capacitibine
-p1 <- ggplot(het, aes(y=mean.het+0.01, x=reorder(state, mean.het), fill=group)) +
-  geom_bar(size=1,  stat="identity", width=0.6, alpha=0.7)+
-  scale_fill_manual(values = c("steelblue4", "black"))+
-  #scale_fill_manual(values = c("lightpink","lightgreen"))+
-  labs( x="", y="epiCHAOS")+
-  theme_classic() +
-  theme(axis.text.x = element_text(angle=90))
-
+#--- create boxplot
 p2 <- ggplot(het, aes(y=mean.het+0.01, x=reorder(group, mean.het))) +
   geom_boxplot(fill="lightsteelblue3")+
   geom_jitter(size=0.5, width = 0.1)+
@@ -153,11 +146,7 @@ p2 <- ggplot(het, aes(y=mean.het+0.01, x=reorder(group, mean.het))) +
   theme(axis.text.x = element_text(angle=90))
 
 
-pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/scCHIP/barplot_epiCHAOS_sensitive_vs_resistant_brca_capa_10subsamples.pdf", 8, 3)
-pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 5/barplot_epiCHAOS_scCHIP_CapR.pdf", 7, 2.5)
-ggpubr::ggarrange(p1,p2, widths = c(5, 2), align = "h")
-dev.off()
-
+# plot 
 svg("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 5/barplot_epiCHAOS_scCHIP_CapR.svg", 7, 2.5)
 ggpubr::ggarrange(p1,p2, widths = c(5, 2), align = "h")
 dev.off()

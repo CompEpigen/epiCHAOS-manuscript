@@ -6,6 +6,7 @@ analysis.dir <- "/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer"
 
 setwd(analysis.dir)
 
+#--- load ArchR packages
 library(ArchR)
 library(BSgenome.Hsapiens.UCSC.hg19)
 
@@ -14,11 +15,11 @@ addArchRThreads(threads = 16)
 
 addArchRGenome("hg19")
 
-# path tp fragments files
+#--- path to fragments files
 fragments <- paste0(data.dir, list.files(data.dir, pattern = "fragments.tsv.gz$"))
 names(fragments) <- list.files(data.dir, pattern = "fragments.tsv.gz$") %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
 
-# create arrow files
+#--- create arrow files
 ArrowFiles <- createArrowFiles(
   inputFiles = fragments,
   sampleNames = names(fragments),
@@ -30,7 +31,7 @@ ArrowFiles <- createArrowFiles(
 
 ArrowFiles <- list.files(pattern = "arrow")
 
-# doublet prediction
+#--- doublet prediction
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
@@ -38,19 +39,20 @@ doubScores <- addDoubletScores(
   LSIMethod = 1
 )
 
-# create an ArchR project
+#--- create an ArchR project
 brca <- ArchRProject(
   ArrowFiles = ArrowFiles,
   outputDirectory = analysis.dir,
   copyArrows = TRUE #This is recommened so that if you modify the Arrow files you have an original copy for later usage.
 )
 
-# save ArchR project
+#--- save ArchR project
 saveArchRProject(ArchRProj = brca, load = FALSE)
 
-# filter doublets
+#--- filter doublets
 brca <- filterDoublets(brca)
 
+#--- add iterative LSI
 brca <- addIterativeLSI(
   ArchRProj = brca,
   useMatrix = "TileMatrix",
@@ -64,7 +66,7 @@ brca <- addIterativeLSI(
   dimsToUse = 1:30)
 
 
-# add clusters
+#--- add clusters
 brca <- addClusters(
   input = brca,
   reducedDims = "IterativeLSI",
@@ -73,7 +75,7 @@ brca <- addClusters(
   resolution = 0.8
 )
 
-# umap
+#--- add umap
 brca <- addUMAP(
   ArchRProj = brca,
   reducedDims = "IterativeLSI",
@@ -96,7 +98,7 @@ saveArchRProject(ArchRProj = brca, load = FALSE)
 #--- add group coverages for peak calling
 brca <- addGroupCoverages(brca)
 
-# calling peaks using macs2
+#--- calling peaks using macs2
 pathToMacs2 <- findMacs2()
 
 brca <- addReproduciblePeakSet(
@@ -106,7 +108,7 @@ brca <- addReproduciblePeakSet(
 
 saveArchRProject(ArchRProj = brca, load = FALSE)
 
-# add a peaks matrix
+#--- add a peaks matrix
 brca <- addPeakMatrix(brca)
 
 mat <- getMatrixFromProject(
@@ -120,7 +122,7 @@ mat <- getMatrixFromProject(
 )
 
 
-# # save gene score matrix unbinarised
+#--- save gene score matrix unbinarised
 mat <- getMatrixFromProject(
   ArchRProj = brca,
   useMatrix = "GeneScoreMatrix",
@@ -145,7 +147,7 @@ temp <- temp[c("EPCAM", "KRT1", "CD3D", "KDR", "ENG", "PECAM1", "PAX5", "ITGAM",
 temp[,2:14][temp[,2:14]>0] <- 1
 colnames(temp)[grepl("UMAP", colnames(temp))] <- c("UMAP1", "UMAP2")
 
-# clusters
+#--- clusters
 p1 <- ggplot(temp, aes(y=UMAP1, x=UMAP2, color=Clusters)) +
   geom_point(size=0.5)+
   theme_classic()
@@ -193,9 +195,6 @@ pdf("umaps_celltype_annotating_by_marker_genes.pdf", 15,10)
 ggarrange(p1,p2,p3,p4,p5,p6,p7,p8,p9, ncol=3, nrow=3)
 dev.off()
 
-plotEmbedding(brca, colorBy = "geneScoreMatrix", name = "CXCL12")
-
-
 
 #--- subset the object for epithelial cells (cluster 13:24) and perform clustering again on the subseted object
 brca <- loadArchRProject(analysis.dir)
@@ -203,6 +202,7 @@ epith.cells <- brca$cellNames[brca$Clusters %in% paste0("C", 13:24)]
 
 epith <- subsetCells(ArchRProj = brca, cellNames = epith.cells)
 
+#--- add new iterative LSI
 epith <- addIterativeLSI(
   ArchRProj = epith,
   useMatrix = "TileMatrix",
@@ -216,7 +216,7 @@ epith <- addIterativeLSI(
   dimsToUse = 1:30)
 
 
-# add clusters
+#--- add new clusters
 epith <- addClusters(
   input = epith,
   reducedDims = "IterativeLSI.epith",
@@ -225,7 +225,7 @@ epith <- addClusters(
   resolution = 0.8
 )
 
-# umap
+#--- add new umap
 epith <- addUMAP(
   ArchRProj = epith,
   reducedDims = "IterativeLSI.epith",
@@ -245,10 +245,10 @@ plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters_epithelial.pdf", ArchRProj = ep
 #--- load the subsetted object with only epithelial cells
 brca <- loadArchRProject(file.path(analysis.dir,"epithelial/"))
 
-# add group coverages for peak calling
+#--- add group coverages for peak calling
 brca <- addGroupCoverages(brca, force = T)
 
-# calling peaks
+#--- calling peaks
 pathToMacs2 <- findMacs2()
 
 brca <- addReproduciblePeakSet(
@@ -257,7 +257,7 @@ brca <- addReproduciblePeakSet(
 )
 
 
-# add a peaks matrix
+#--- add a peaks matrix
 brca <- addPeakMatrix(brca)
 
 mat <- getMatrixFromProject(
@@ -272,7 +272,7 @@ mat <- getMatrixFromProject(
 
 saveRDS(mat, file.path(analysis.dir, "epithelial/peaks_matrix.Rds"))
 
-# save gene score matrix unbinarised
+#--- save gene score matrix unbinarised
 mat <- getMatrixFromProject(
   ArchRProj = brca,
   useMatrix = "GeneScoreMatrix",
@@ -298,6 +298,7 @@ colnames(mat) <- paste0(brca$Sample, "_", brca$cellNames)
 clusters <- unique(brca$Clusters.epith)
 table(brca$Clusters.epith)
 
+#--- list of peaks-by-cells matrices for each epithelial cluster
 datasets <- list()
 for (i in clusters) {
   ids <- colnames(mat)[brca$Clusters.epith==i]
@@ -308,7 +309,7 @@ for (i in clusters) {
 
 lapply(datasets, dim)
 
-# compute heterogeneity scores
+#--- compute epiCHAOS scores
 het <- compute.eITH(datasets)
 
 
@@ -333,8 +334,3 @@ p2 <- ggplot(temp, aes(x=UMAP1, y=UMAP2, color=mean.het)) +
   theme_classic()
 
 ggarrange(p1,p2,ncol=2, widths = c(1, 1))
-
-
-
-
-

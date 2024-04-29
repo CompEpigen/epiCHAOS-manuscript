@@ -1,40 +1,39 @@
 
 
+#--- liver cancer scATAC-seq analysis with excluding non-malignant cells
 
-#--- liver cancer analysis with excluding non-malignant cells
-
-#--- scATAC data from liver cancer: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227265
+#--- scATAC data from liver cancer from Craig et al 2023: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE227265
 
 setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/")
 
+#--- directory containing fragments files, and for analysis
 data.dir <- "/omics/groups/OE0219/internal/KatherineK/data/scATAC/Liver-Cancer/"
 analysis.dir <- "/omics/groups/OE0219/internal/KatherineK/ATACseq/Liver-Cancer/malignant-subset/"
 
-
+#--- load ArchR packages
 library(ArchR)
 library(BSgenome.Hsapiens.UCSC.hg38)
 
 addArchRThreads(threads = 16)
-
 addArchRGenome("hg38")
-fragments <- paste0(file.path(data.dir, "scATAC/Liver-Cancer/"),
-                    list.files(file.path(data.dir, "scATAC/Liver-Cancer/"), pattern = "Samples.tsv.gz$"))
 
+#--- fragments files
+fragments <- paste0(file.path(data.dir, "scATAC/Liver-Cancer/"), list.files(file.path(data.dir, "scATAC/Liver-Cancer/"), pattern = "Samples.tsv.gz$"))
 names(fragments) <- list.files(file.path(data.dir, "scATAC/Liver-Cancer/"), pattern = "Samples.tsv.gz$") %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
 
-# create arrow files
+#--- create arrow files
 ArrowFiles <- createArrowFiles(
   inputFiles = fragments,
   sampleNames = names(fragments),
-  minTSS = 6, 
-  minFrags = 3000,
+  minTSS = 4, 
+  minFrags = 1000,
   addTileMat = TRUE,
   addGeneScoreMat = TRUE
 )
 
 ArrowFiles <- list.files(pattern = "arrow")
 
-# doublet prediction
+#--- doublet prediction
 doubScores <- addDoubletScores(
   input = ArrowFiles,
   k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
@@ -42,27 +41,29 @@ doubScores <- addDoubletScores(
   LSIMethod = 1
 )
 
-# create an ArchR project
+#--- create an ArchR project
 lica <- ArchRProject(
   ArrowFiles = ArrowFiles,
   outputDirectory = file.path(analysis.dir, "malignant-subset/"),
   copyArrows = TRUE #This is recommened so that if you modify the Arrow files you have an original copy for later usage.
 )
 
-# save ArchR project
+#--- save ArchR project
 saveArchRProject(ArchRProj = lica, load = FALSE)
 
-# filter doublets
+#--- filter doublets
 lica <- filterDoublets(lica)
 
-# exclude cells from non-malignant clusters
-celltypes <- read.table(file.path(analysis.dir, "celltypes.txt"), header = T, sep="\t")
+
+#--- exclude cells annotated to non-malignant clusters in the Craig et al. publication
+celltypes <- read.table(file.path(data.dir, "celltypes.txt"), header = T, sep="\t")
 exclude.cells <- celltypes$Cell_Barcode[celltypes$Predicted_Cell_Type!="Malignant cells"]
 exclude.cells <- paste0("GSE227265_fragments_AllSamples#", exclude.cells) %>% intersect(lica$cellNames)
 malignant.cells <- setdiff(lica$cellNames, exclude.cells)
 
 lica <- subsetCells(ArchRProj = lica, cellNames = malignant.cells)
 
+#--- add iterative LSI
 lica <- addIterativeLSI(
   ArchRProj = lica,
   useMatrix = "TileMatrix",
@@ -76,7 +77,7 @@ lica <- addIterativeLSI(
   dimsToUse = 1:30)
 
 
-# add clusters
+#--- add clusters
 lica <- addClusters(
   input = lica,
   reducedDims = "IterativeLSI",
@@ -85,7 +86,7 @@ lica <- addClusters(
   resolution = 0.8
 )
 
-# umap
+#--- umap
 lica <- addUMAP(
   ArchRProj = lica,
   reducedDims = "IterativeLSI",
@@ -104,10 +105,10 @@ plotPDF(p1,p2, name = "Plot-UMAP-Sample-Clusters.pdf", ArchRProj = lica, addDOC 
 
 saveArchRProject(ArchRProj = lica, load = FALSE)
 
-
+#--- add group coverages
 lica <- addGroupCoverages(lica)
 
-# calling peaks
+#--- calling peaks with macs2
 pathToMacs2 <- findMacs2()
 
 lica <- addReproduciblePeakSet(
@@ -117,7 +118,7 @@ lica <- addReproduciblePeakSet(
 
 saveArchRProject(ArchRProj = lica, load = FALSE)
 
-# add a peaks matrix
+#--- add a peaks matrix
 lica <- addPeakMatrix(lica)
 
 mat <- getMatrixFromProject(
@@ -132,7 +133,7 @@ mat <- getMatrixFromProject(
 
 saveRDS(mat, file = "peaks_matrix.Rds")
 
-# gene score matrix
+#--- gene score matrix
 mat <- getMatrixFromProject(
   ArchRProj = lica,
   useMatrix  = "GeneScoreMatrix",
@@ -144,7 +145,6 @@ mat <- getMatrixFromProject(
 )
 
 saveRDS(mat, "gene_score_matrix.Rds")
-
 
 
 #--- downstream analysis on peaks matrix
@@ -159,9 +159,9 @@ rownames(mat) <- row.names
 mat[1:10,1:10]
 clusters <- unique(lica$Clusters)
 
+#--- peaks-by-cells matrices for each cluster, subset for 100 cells for larger clusters
 datasets <- list()
 for (i in clusters) {
-  #ids <- colnames(mat)[grepl(i, colnames(mat))]
   ids <- colnames(mat)[lica$Clusters==i]
   if (length(ids)<50) { next }
   datasets[[i]] <- mat[,ids]
@@ -170,101 +170,9 @@ for (i in clusters) {
 
 lapply(datasets, dim)
 
-# compute epiCHAOS
+#--- compute and save epiCHAOS scores, use "cancer" version to correct for per-chromosome counts
 het <- compute.eITH(datasets)
+het <- compute.eITH.cancer(datasets)
 
 saveRDS(het, "epiCHAOS_scores_copy_corrected_all_peaks.Rds")
 
-
-#--- compare epiCHAOS in peaks vs windows matrix
-mat <- getMatrixFromProject(
-  ArchRProj = lica,
-  useMatrix = "TileMatrix",
-  useSeqnames = NULL,
-  verbose = TRUE,
-  binarize = T,
-  threads = getArchRThreads(),
-  logFile = createLogFile("getMatrixFromProject")
-)
-
-saveRDS(mat, file = "tile_matrix.Rds")
-
-#--- compute epiCHAOS and compare to peaks
-mat <- readRDS("tile_matrix.Rds")
-mat <- mat@assays@data$TileMatrix
-mat <- mat[rowSums(mat)>30,]
-dim(mat)
-mat[mat>1] <- 1
-
-sample.sites <- sample(nrow(mat), 500000)
-mat <- mat[sample.sites,]
-dim(mat)
-
-#colnames(mat) <- paste0(lica$Sample, "_", lica$cellNames)
-clusters <- unique(lica$Clusters)
-
-datasets <- list()
-for (i in clusters) {
-  ids <- colnames(mat)[lica$Clusters==i]
-  print(length(ids))
-  datasets[[i]] <- mat[,ids]
-  if (ncol(datasets[[i]])>100) { datasets[[i]] <- datasets[[i]][,sample(ncol(datasets[[i]]), 100)]  }
-}
-
-lapply(datasets, dim)
-
-# compute heterogeneity scores
-het2 <- compute.eITH(datasets)
-saveRDS(het2, "epiCHAOS_scores_tilematrix.Rds")
-
-temp <- data.frame(TileMatrix=het2$mean.het, PeakMatrix=het$mean.het)
-
-pdf("correlate_epiCHAOS_tiles_vs_peaks_brca.pdf", 5, 4)
-ggplot(temp, aes(y=TileMatrix, x=PeakMatrix)) +
-  geom_point(size=3, alpha=0.7,  color="steelblue4")+
-  stat_cor() +
-  labs(x="epiCHAOS PeakMatrix", y="epiCHAOS TileMatrix") +
-  theme_bw()
-dev.off()
-
-saveRDS(het2, file = "epiCHAOS_tilematrix.Rds")
-
-#--- barplot for heterogeneity scores
-pdf("barplot_epiCHAOS_percluster.pdf", 5, 2)
-ggplot(het, aes(x = reorder(state, mean.het), y = mean.het)) +
-  geom_bar(stat="identity", position = "dodge", alpha=0.8, width = 0.6)+
-  labs(x="", y="epiCHAOS")+
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-dev.off()
-
-
-#--- calculate heterogeneity scores with count adjustement per chromosome
-
-# tiles matrix
-mat <- readRDS("tile_matrix.Rds")
-row.names <- paste(mat@elementMetadata$seqnames, mat@elementMetadata$start, sep=":")
-mat <- mat@assays@data$TileMatrix
-rownames(mat) <- row.names
-mat <- mat[rowSums(mat)>30,]
-mat[mat>1] <- 1
-dim(mat)
-sample.sites <- sample(nrow(mat), 500000)
-mat <- mat[sample.sites,]
-dim(mat)
-
-clusters <- unique(lica$Clusters)
-
-datasets <- list()
-for (i in clusters) {
-  ids <- colnames(mat)[lica$Clusters==i]
-  print(length(ids))
-  datasets[[i]] <- mat[,ids]
-  if (ncol(datasets[[i]])>100) { datasets[[i]] <- datasets[[i]][,sample(ncol(datasets[[i]]), 100)]  }
-}
-
-lapply(datasets, dim)
-
-
-# compute heterogeneity scores
-het <- compute.eITH(datasets)

@@ -5,6 +5,8 @@ EpiCHAOS is a metric for calculating cell-to-cell heterogeneity in single-cell e
 
 EpiCHAOS scores are assigned per cluster (or otherwise defined group of single cells, e.g. cell type, treatment condition). Scores will range from 0-1 where higher scores indicate higher cell-to-cell heterogeneity. 
 
+For details please refer to the epiCHAOS preprint: https://www.biorxiv.org/content/10.1101/2024.04.24.590899v1. "analysis-scripts" contains R scripts used for all analyses related to this publication.
+
 
 #### Calculation of epiCHAOS scores
 

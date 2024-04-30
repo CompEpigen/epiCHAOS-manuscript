@@ -69,20 +69,22 @@ create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
   meta$group <- meta[,colname]
   
   #--- if row indices are provided, subset the counts matrix for the specified rows
-  counts <- ifelse(!is.null(index), counts[index, ], counts )
+  if (is.null(index)) {index <- rownames(counts) }
+  counts <- counts[index,]
   
   #--- create a list to hold counts matrices for each group/cluster
   matrices <- list()
   
   for (group in unique(meta$group)) {
     ids <- meta[meta$group==group, ] %>% rownames()
-    matrices[[group]] <- counts[,ids] %>% as.matrix()
+    
+    matrices[[paste0("group-",group)]] <- counts[,ids] %>% as.matrix()
     
     #--- if more cells than selected n (defaults to 100 cells), downsample for n cells for that group
-    if (length(ids)>n) { matrices[[group]] <- counts[,sample(ids, n)] %>% as.matrix() }
+    if (length(ids)>n) { matrices[[paste0("group-",group)]] <- counts[,sample(ids, n)] %>% as.matrix() }
     
     #--- binarise counts if not already
-    matrices[[group]][matrices[[group]]>1] <- 1
+    matrices[[paste0("group-",group)]][matrices[[paste0("group-",group)]]>1] <- 1
   }
   
   #--- return list of matrices for epiCHAOS calculation

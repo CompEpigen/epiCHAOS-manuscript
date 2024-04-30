@@ -69,7 +69,7 @@ create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
   meta$group <- meta[,colname]
   
   #--- if row indices are provided, subset the counts matrix for the specified rows
-  if (index) { counts <- counts[index, ] }
+  counts <- ifelse(!is.null(index), counts[index, ], counts )
   
   #--- create a list to hold counts matrices for each group/cluster
   matrices <- list()

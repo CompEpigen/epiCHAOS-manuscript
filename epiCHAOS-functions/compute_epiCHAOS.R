@@ -62,9 +62,10 @@ compute.eITH <- function(x) {
 #- meta: metadata including the column on which the data should be grouped, e.g. cluster or celltype.
 #- colname: the name of the column in "meta" on which to group the data e.g. "cluster" or "celltype". If not specified this defaults the the first column in "meta".
 #- n: the number of cells to subset for each group/cluster. This defults to 100.
+#- m: the minimum number of cells per group/cluster. This defaults to 20. If fewer than m cells are found in a group/cluster, an epiCHAOS score is not computed.
 #- index: the rows in counts on which to subset the counts matrix. If not provided the whole counts matrix will be used by default. Otherwise "index" may be specified as either a (i) vector of numerical indices, (ii) a vector or names corresponding to the rownames of interest in "counts"
 
-create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
+create.group.matrices <- function(counts, meta, colname, n=100, m=20, index=NULL) {
 
   meta$group <- meta[,colname]
   
@@ -80,7 +81,8 @@ create.group.matrices <- function(counts, meta, colname, n=100, index=NULL) {
     
     matrices[[paste0("group-",group)]] <- counts[,ids] %>% as.matrix()
     
-    #--- if more cells than selected n (defaults to 100 cells), downsample for n cells for that group
+    #--- if more cells than selected n (defaults to 100 cells), downsample for n cells for that group, if the number of cells is smaller than a specified minimum, skip to the next group
+    if (length(ids)<m) { next }
     if (length(ids)>n) { matrices[[paste0("group-",group)]] <- counts[,sample(ids, n)] %>% as.matrix() }
     
     #--- binarise counts if not already

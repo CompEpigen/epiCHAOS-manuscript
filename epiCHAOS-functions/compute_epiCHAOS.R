@@ -79,10 +79,12 @@ create.group.matrices <- function(counts, meta, colname, n=100, m=20, index=NULL
   for (group in unique(meta$group)) {
     ids <- meta[meta$group==group, ] %>% rownames()
     
+    #--- if the number of cells is smaller than a specified minimum, skip to the next group
+    if (length(ids)<m) { next }
+    
     matrices[[paste0("group-",group)]] <- counts[,ids] %>% as.matrix()
     
-    #--- if more cells than selected n (defaults to 100 cells), downsample for n cells for that group, if the number of cells is smaller than a specified minimum, skip to the next group
-    if (length(ids)<m) { next }
+    #--- if more cells than selected n (defaults to 100 cells), downsample for n cells for that group
     if (length(ids)>n) { matrices[[paste0("group-",group)]] <- counts[,sample(ids, n)] %>% as.matrix() }
     
     #--- binarise counts if not already
@@ -157,19 +159,46 @@ compute.eITH.cancer <- function(x) {
 # - index: the rows in counts on which to subset the counts matrix. If not provided the whole counts matrix will be used by default. Otherwise "index" may be specified as either a (i) vector of numerical indices, (ii) a vector or names corresponding to the rownames of interest in "counts"
 # - plot: if true, a barplot will be returned as well as the epiCHAOS scores. Defaults to FALSE.
 # - cancer: if true, the count correction step will be performed per-chromosome in order to take into account differences in coverage arising from large copy number alterations
+# - subsample: if > 1, the specified number of subsamples of cells are selected from each group for computation. 
 
-epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL, plot=F, cancer=F) {
+epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL, plot=F, cancer=F, subsample=1) {
   
   #--- create per-group matrices
   print("creating group matrices")
-  matrices <- create.group.matrices(counts, meta, colname, n, index)
+  
+  #--- if subsample is kept at 1, epiCHAOS scores are computed once per group
+  if (subsample==1) {
+    matrices <- create.group.matrices(counts = counts, meta=meta, colname = colname, n = n, index = index)
+    
+  #--- otherwise, a specified number of subsamples of cells are taken for calculation as "pseudoreplicates"
+  } else {
+    
+    matrices <- list()
+    for (rep in 1:subsample) {
+      set.seed(rep)
+      rep.matrices <- create.group.matrices(counts = counts, meta = meta, colname = colname, n = n, index = index)
+      names(rep.matrices) <- paste0(names(rep.matrices), "-", rep)
+      matrices <- c(matrices, rep.matrices)
+    }
+  }
+  
   print("computing epiCHAOS scores")
   
   #--- compute epiCHAOS scores
-  het <- ifelse(cancer==T, compute.eITH.cancer(matrices), compute.eITH(matrices))
+  if (cancer==T) {
+    het <- compute.eITH.cancer(x = matrices)
+  } else { 
+     het <- compute.eITH(x = matrices)
+  }
   
+  #--- adjust group names if subsampling was performed
+  if (subsample>1) {
+    het$state <- sub("-[^_]+$", "", het$state)
+  }
+  
+  #--- if plot
   if (plot) {
-    
+
     #--- return a barplot of epiCHAOS scores
     p <- ggplot2::ggplot(het, aes(x = reorder(state, mean.het), y = mean.het+0.01)) +
       geom_bar(stat="identity", position = "dodge", alpha=0.8, width = 0.6)+
@@ -177,9 +206,9 @@ epiCHAOS <- function(counts, meta, colname=colnames(meta)[1], n=100, index=NULL,
       theme_classic() +
       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
     return(list(het=het, barplot=p))
-    
-  } else { 
-    
+
+  } else {
+     
     #--- return epiCHAOS scores
     return(het) 
   }

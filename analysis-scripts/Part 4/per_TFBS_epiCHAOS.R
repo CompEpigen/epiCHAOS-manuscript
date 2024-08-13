@@ -1,13 +1,8 @@
 
-#--- compute epiCHAOS scores on different genomic regions in each hematopoietic celltype
-
-library(magrittr)
-library(dplyr)
-library(stringr)
-library(GenomicRanges)
+#--- compute epiCHAOS scores on different genomic regions
 
 
-#--- load encode TFBS as provided in lola core database
+#--- the lola encode tfbs should be included as example data..
 lola <- get(load("/omics/groups/OE0219/internal/KatherineK/Genomic_Annotations/LOLA/hg19/encode_tfbs/encode_tfbs.RData"))
 index <- read.table("/omics/groups/OE0219/internal/KatherineK/Genomic_Annotations/LOLA/hg19/encode_tfbs/index.txt", header = T)
 names(lola) <- index$filename

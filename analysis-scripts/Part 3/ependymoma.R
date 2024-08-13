@@ -6,7 +6,9 @@ library(Signac)
 library(EnsDb.Hsapiens.v86)
 library(magrittr)
 library(stringr)
-
+library(epiCHAOS)
+library(RColorBrewer)
+library(ggpubr)
 
 set.seed(10)
 
@@ -30,56 +32,78 @@ dim(atac)
 datasets <- list()
 for (i in unique(epn$group)) {
   
+  print(i)
+  
   #--- cell ids for the selected cell type
   ids <- epn@meta.data[epn$group==i,] %>% rownames()
   
   #--- skip if too few cells, subset to 200 if many cells
   if (length(ids)<20) { next }
   temp <- atac[,ids]
-  if (ncol(temp)>200) { temp <- temp[,sample(ncol(temp), 200)]}
   
-  #--- adjust rownames
-  rownames(temp) <- rownames(temp) %>% str_replace("-", ":")
+  ncells <- min(c(100, ncol(temp)))
   
-  #--- binarise
-  temp[temp>1] <- 1
-  
-  datasets[[i]] <- temp
+  #--- take subsamples of 5 x 100 cells from each group
+  for (n in 1:5) {
+    
+    #--- sample 100 cells
+    temp.sample <- temp[,sample(ncol(temp), ncells)]
+    
+    #--- adjust rownames
+    rownames(temp.sample) <- rownames(temp.sample) %>% str_replace("-", ":")
+    
+    #--- binarise
+    temp.sample[temp.sample>1] <- 1
+    
+    datasets[[paste0(i, "-", n)]] <- temp.sample
+    
+  }
 }
 
 lapply(datasets, dim)
 
 
 #--- compute epiCHAOS scores per celltype
-het <- compute.eITH(datasets)
-het <- compute.eITH.cancer(datasets)
+het <- compute_eITH(datasets)
+#het <- compute_eITH_cancer(datasets)
 #het %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/epiCHAOS_ependymoma.csv")
+
+#--- adjust labels for plotting
+het$state <- het$state %>% str_split("-") %>% lapply("[", 1) %>% unlist()
+het$malignant <- ifelse(het$state %in% c("Undifferentiated_cells", "NPCs", "Ependymal_cells", "MLCs", "Astrocytes"), "malignant", "non-malignant")
+het$state <- het$state %>% str_replace_all("_", " ")
+
+saveRDS(het, file = "ependymoma/epiCHAOS_scores_with_subsampling.Rds")
+het %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/Revision/epiCHAOS_ependymoma_subsampling.csv")
+
+#--- adjust labels for plotting
+Idents(epn) <- epn@meta.data$celltype %>% str_replace_all("_", " ")
 
 #--- add epiCHAOS scores to epn metadata
 for (i in unique(het$state)) {
-  epn@meta.data$epiCHAOS[epn@meta.data$celltype==i] <- het$mean.het[het$state==i]
+  epn@meta.data$epiCHAOS[Idents(epn)==i] <- mean(het$het.adj[het$state==i])
 }
 
-#--- adjust labels for plotting
-het$malignant <- ifelse(het$state %in% c("Undifferentiated_cells", "NPCs", "Ependymal_cells", "MLCs", "Astrocytes"), "malignant", "non-malignant")
-het$state <- het$state %>% str_replace_all("_", " ")
-Idents(epn) <- epn@meta.data$celltype %>% str_replace_all("_", " ")
-
-library(RColorBrewer)
-library(ggpubr)
 
 #--- umaps and barplots of epiCHAOS scores per-celltype
 p1 <- DimPlot(epn) + scale_color_brewer(palette = "Set3") +labs(x="UMAP1", y="UMAP2")
 
 p2 <- FeaturePlot(epn, features="epiCHAOS")  + labs(x="UMAP1", y="UMAP2") + scale_color_distiller(palette = "Blues", direction = 1)
 
-p3 <- ggplot(temp, aes(x=reorder(state, mean.het), y=mean.het, fill=malignant)) +
-  geom_bar(position="dodge", stat = "identity", alpha=0.9, width = 0.6) +
+p3 <- ggplot(het, aes(x=reorder(state, het.adj), y=het.adj, fill=malignant)) +
+  geom_boxplot() +
   scale_fill_manual(values = c("steelblue4", "grey20"))+
   labs(x="", y="epiCHAOS")+
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90))
 
+# p3 <- ggplot(temp, aes(x=reorder(state, mean.het), y=mean.het, fill=malignant)) +
+#   geom_bar(position="dodge", stat = "identity", alpha=0.9, width = 0.6) +
+#   scale_fill_manual(values = c("steelblue4", "grey20"))+
+#   labs(x="", y="epiCHAOS")+
+#   theme_classic() +
+#   theme(axis.text.x = element_text(angle = 90))
 
-ggarrange(p1,p2,p3, ncol=3, widths = c(1, 0.8, 0.8))
-
+svg("epiCHAOS-Figures/Figure 3/ependymoma_umap_boxplot_epiCHAOS_subsamling.svg", 10, 4)
+ggarrange(p2,p3, ncol=2)
+dev.off()

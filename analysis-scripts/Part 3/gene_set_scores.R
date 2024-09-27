@@ -78,7 +78,13 @@ for (set in set.names) {
 }
 
 #--- load previously computed epiCHAOS scores
-het <- readRDS("epiCHAOS_scores_copy_corrected_all_peaks.Rds")
+het <- readRDS("epiCHAOS_scores_copy_corrected_all_peaks_subsampling.Rds")
+het$state <- het$state %>% str_split("-") %>% lapply("[", 1) %>% unlist()
+het <- het %>% group_by(state) %>% summarise(mean.het=mean(het)) %>% data.frame()
+
+gene.set.scores <- readRDS("gene_set_scores_vs_het_allgenesets.Rds")
+gene.set.scores <- gene.set.scores$scores
+gene.set.scores$mean.het <- NULL
 
 #--- merge gene set scores and epiCHAOS scores
 temp <- merge(gene.set.scores, het[,c("state", "mean.het")], by.x=0, by.y="state") %>% unique()
@@ -86,10 +92,17 @@ rownames(temp) <- temp$Row.names
 temp$Row.names <- NULL
 
 #--- compute correlations between each gene set score and epiCHAOS score
-cor <- cor(as.matrix(temp))
+require(Hmisc) # use rcorr so that you can also get the p-values
+cor <- rcorr(as.matrix(temp))
+pvals <- cor$P
+cor <- cor$r
 cor["mean.het",] %>% sort()
 
-#--- save list contianing the gene set scores and their correlations with epiCHAOS
+#--- write to supplementary info
+data.frame(r=cor[,"mean.het"], pval=pvals[,"mean.het"]) %>% arrange(desc(r)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/Revision/correlations_and_pvals_lica_epiCHAOS_vs_gene_sets.csv")
+
+
+#--- save list contianing the gene set scores and their correlations with epiCHAOS (now saved result after subsampling)
 obj <- list(scores=temp, correlation=cor)
 saveRDS(obj, file = "gene_set_scores_vs_het_allgenesets.Rds")
 
@@ -111,7 +124,7 @@ temp$label <- ifelse(rownames(temp) %in% labels, rownames(temp), "")
 temp$label <- temp$label %>% str_replace_all("_", " ")
 
 #--- Figure 3B-C. plot of correlations
-ggplot(temp, aes(y=pearson, x=reorder(n, pearson), label=label)) +
+elbow.lica <- ggplot(temp, aes(y=pearson, x=reorder(n, pearson), label=label)) +
   geom_point(size=1, alpha=0.7)+
   labs(x="", y="Correlation vs epiCHAOS") +
   #ggrepel::geom_label_repel(max.overlaps = 10000, size=3)+
@@ -119,7 +132,10 @@ ggplot(temp, aes(y=pearson, x=reorder(n, pearson), label=label)) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 
 #--- check top 5
-temp %>% arrange(pearson) %>% tail() %>% rownames() %>% rev()
+temp %>% arrange(pearson) %>% tail(5) %>% rownames() %>% rev()
+# [1] "HALLMARK_KRAS_SIGNALING_UP"                 "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION"
+# [3] "HALLMARK_UV_RESPONSE_DN"                    "HALLMARK_COAGULATION"                      
+# [5] "HALLMARK_PANCREAS_BETA_CELLS" 
 
 #--- correlation plot of interesting gene sets in liver cancer
 interest <- c("MEBARKI_HCC_PROGENITOR_WNT_UP", "CHIANG_LIVER_CANCER_SUBCLASS_CTNNB1_UP", "HOSHIDA_LIVER_CANCER_SURVIVAL_UP")
@@ -128,6 +144,95 @@ cor <- obj$correlation
 M <- cor[interest,"mean.het"] %>% as.matrix()
 colnames(M) <- ""
 rownames(M) <- c("HCC Progenitor WNT Up (Mebarki et al.)", "Liver Cancer Beta-Catenin subclass (Chiang et al.)", "Liver Cancer Survival (Hoshida et al.)")
-corrplot(M, method = 'ellipse',  addCoef.col = 'black',col = rev(COL2('RdBu', 10)), cl.pos="n", tl.col="black", tl.pos = "right", title = "pearson R")
 
+#--- save corrplot for genes of interest (supplementary figure)
+pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 3/corrplot_lica.pdf", 9, 2.5)
+corrplot(M, method = 'ellipse',  addCoef.col = 'black',col = rev(COL2('RdBu', 10)), cl.pos="n", tl.col="black", tl.pos = "right", title = "pearson R")
+dev.off()
+
+
+#--- brca
+
+setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial/")
+
+
+#--- load previously computed epiCHAOS scores
+het <- readRDS("epiCHAOS_scores_count_corrected_allpeaks_subsampling.Rds")
+het$state <- het$state %>% str_split("-") %>% lapply("[", 1) %>% unlist()
+het <- het %>% group_by(state) %>% summarise(mean.het=mean(het)) %>% data.frame()
+
+gene.set.scores <- readRDS("gene_set_scores_vs_het_allgenesets_epithelial_clusters.Rds")
+gene.set.scores <- gene.set.scores$scores
+gene.set.scores$mean.het <- NULL
+
+#--- merge gene set scores and epiCHAOS scores
+temp <- merge(gene.set.scores, het[,c("state", "mean.het")], by.x=0, by.y="state") %>% unique()
+rownames(temp) <- temp$Row.names
+temp$Row.names <- NULL
+
+#--- compute correlations between each gene set score and epiCHAOS score
+require(Hmisc) # use rcorr so that you can also get the p-values
+cor <- rcorr(as.matrix(temp))
+pvals <- cor$P
+cor <- cor$r
+cor["mean.het",] %>% sort()
+
+#--- write to supplementary info
+data.frame(r=cor[,"mean.het"], pval=pvals[,"mean.het"]) %>% arrange(desc(r)) %>% head() 
+data.frame(r=cor[,"mean.het"], pval=pvals[,"mean.het"]) %>% arrange(desc(r)) %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/Revision/correlations_and_pvals_brca_epiCHAOS_vs_gene_sets.csv")
+
+
+#--- save list contianing the gene set scores and their correlations with epiCHAOS (now saved result after subsampling)
+obj <- list(scores=temp, correlation=cor)
+saveRDS(obj, file = "gene_set_scores_vs_het_allgenesets.Rds")
+
+#--- downstream analysis
+obj <- readRDS("gene_set_scores_vs_het_allgenesets.Rds")
+
+#--- scores and correlations
+scores <- obj$scores
+cor <- obj$correlation
+cor <- cor[,"mean.het"]
+
+#--- for plotting
+temp <- data.frame(cor)
+colnames(temp) <- "pearson"
+temp$n <- 1:nrow(temp)
+temp <- temp[grepl("HALLMARK", rownames(temp)),]
+labels <- c("HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION")
+temp$label <- ifelse(rownames(temp) %in% labels, rownames(temp), "")
+temp$label <- temp$label %>% str_replace_all("_", " ")
+
+#--- Figure 3B-C. plot of correlations
+elbow.brca <- ggplot(temp, aes(y=pearson, x=reorder(n, pearson), label=label)) +
+  geom_point(size=1, alpha=0.7)+
+  labs(x="", y="Correlation vs epiCHAOS") +
+  #ggrepel::geom_label_repel(max.overlaps = 10000, size=3)+
+  theme_classic() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+#--- check top 5
+temp %>% arrange(pearson) %>% tail(5) %>% rownames() %>% rev()
+# "HALLMARK_ALLOGRAFT_REJECTION"               "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION" "HALLMARK_INFLAMMATORY_RESPONSE"            
+# [4] "HALLMARK_COMPLEMENT"                        "HALLMARK_UV_RESPONSE_DN"
+
+#--- correlation plot of interesting gene sets in liver cancer
+interest <- c("NIKOLSKY_OVERCONNECTED_IN_BREAST_CANCER", "SCHUETZ_BREAST_CANCER_DUCTAL_INVASIVE_UP", "LIEN_BREAST_CARCINOMA_METAPLASTIC", "JECHLINGER_EPITHELIAL_TO_MESENCHYMAL_TRANSITION_UP", "GOBP_TRANSFORMING_GROWTH_FACTOR_BETA_ACTIVATION", "GOBP_CANONICAL_WNT_SIGNALING_PATHWAY")
+
+
+cor <- obj$correlation
+M <- cor[interest,"mean.het"] %>% as.matrix()
+colnames(M) <- ""
+rownames(M) <- c("Overconnected in Breast Cancer (Nikolsky et al.)", "Ductal Invasive Breast Cancer (Schuetz et al.)", "Metaplastic Breast Cancer (Lien et al.)",  "EMT in Breast Cancer (Jechlinger et al.)",  "TGF-beta activation", "Canonical WNT Signaling")
+
+#--- save corrplot for genes of interest (supplementary figure)
+pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 3/corrplot_brca.pdf", 10, 4)
+corrplot(M, method = 'ellipse',  addCoef.col = 'black',col = rev(COL2('RdBu', 10)), cl.pos="n", tl.col="black", tl.pos = "right", title = "pearson R")
+dev.off()
+
+
+#--- elbow plots for each tumor type hallmark gene set correlations
+svg("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 3/elbowplots_brca_lica.svg", 4, 3)
+ggarrange(elbow.brca, elbow.lica, ncol=2)
+dev.off()
 

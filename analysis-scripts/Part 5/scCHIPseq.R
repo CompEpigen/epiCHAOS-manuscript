@@ -85,7 +85,7 @@ thresh <- quantile(colSums(counts(umi)), probs=seq(0, 1, 0.01))
 ## Filtering & Window selection
 
 #Cell selection based on number of total counts, between min_cov_cell and upper 5%
-sel1000 =  (colSums(counts(umi))>1000 & colSums(counts(umi))< thresh[input$quant_removal+1])
+sel1000 =  (colSums(counts(umi))>1000 & colSums(counts(umi))< thresh[quant_removal+1])
 
 sel <- ( colSums(counts(umi))>min_coverage_cell & colSums(counts(umi)) < thresh[quant_removal+1] )
 
@@ -113,7 +113,7 @@ mat[mat>1] <- 1
 mat[,grepl("resistant", colnames(mat))] %>% dim()
 mat[,grepl("sensitive", colnames(mat))] %>% dim()
 
-set.seed(11)
+set.seed(10)
 
 #--- subsample groups of 100 cells from each condition for epiCHAOS calculation
 datasets <- list()
@@ -136,17 +136,19 @@ het$group <- "resistant"
 het$group[grepl("sensitive", het$state)] <- "sensitive"
 het$state <- het$state %>% str_replace("resistant", "R") %>% str_replace("sensitive", "S")
 
-#--- create boxplot
-p2 <- ggplot(het, aes(y=mean.het+0.01, x=reorder(group, mean.het))) +
-  geom_boxplot(fill="lightsteelblue3")+
-  geom_jitter(size=0.5, width = 0.1)+
-  ggpubr::stat_compare_means(comparisons = list(c(1,2)))+
-  labs( x="", y="epiCHAOS")+
+#--- create violin plot
+p2 <- ggplot(het, aes(x = reorder(group, mean.het), y = mean.het, fill=group)) +
+  geom_boxplot(alpha=0.9)+
+  labs(x="", y="epiCHAOS")+
+  #scale_color_manual(values = rev(c("steelblue4", "black")))+
+  scale_fill_manual(values = rev(c("black", "steelblue4")))+
   theme_classic() +
-  theme(axis.text.x = element_text(angle=90))
+  stat_compare_means()+
+  geom_jitter(size=0.5, width = 0.1)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
 
 # plot 
-svg("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 5/barplot_epiCHAOS_scCHIP_CapR.svg", 7, 2.5)
-ggpubr::ggarrange(p1,p2, widths = c(5, 2), align = "h")
+svg("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Figure 5/violinplot_epiCHAOS_scCHIP_CapR.svg", 4, 4)
+p2
 dev.off()

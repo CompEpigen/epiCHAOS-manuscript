@@ -48,14 +48,16 @@ for (i in seq(100,10000, 100)) {
 lapply(datasets, sum)
 
 #--- compute epiCHAOS score
-het <- compute.eITH(datasets)
+het <- compute_eITH(datasets)
 
 #--- "n" represents the expected level of homogeneity, being zero in the baseline (random) dataset, so "-n" should correlate with the epiCHAOS score
 het$n <- het$state %>% str_remove("t") %>% as.numeric()
 het$n[het$state=="baseline"] <- 0
 
+cor.test(het$het.adj, het$n, method = "spearman")
+
 #--- plot the correlation between epiCHAOS scores and controlled heterogeneity ("-n") (Figure 1B)
-ggplot(het, aes(x = -n, y = mean.het)) +
+ggplot(het, aes(x = -n, y = het.adj)) +
   geom_point(size=1, alpha=0.6)+
   labs(y="epiCHAOS", x="Controlled heterogeneity")+
   stat_cor(method = "spearman")+

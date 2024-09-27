@@ -76,6 +76,10 @@ het$state <- het$state %>% str_replace_all("_", " ")
 saveRDS(het, file = "ependymoma/epiCHAOS_scores_with_subsampling.Rds")
 het %>% write.csv("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/Revision/epiCHAOS_ependymoma_subsampling.csv")
 
+#--- read heterogeneity scores later
+het <- readRDS("ependymoma/epiCHAOS_scores_with_subsampling.Rds")
+
+
 #--- adjust labels for plotting
 Idents(epn) <- epn@meta.data$celltype %>% str_replace_all("_", " ")
 
@@ -90,9 +94,10 @@ p1 <- DimPlot(epn) + scale_color_brewer(palette = "Set3") +labs(x="UMAP1", y="UM
 
 p2 <- FeaturePlot(epn, features="epiCHAOS")  + labs(x="UMAP1", y="UMAP2") + scale_color_distiller(palette = "Blues", direction = 1)
 
-p3 <- ggplot(het, aes(x=reorder(state, het.adj), y=het.adj, fill=malignant)) +
-  geom_boxplot() +
+p3 <- ggplot(het, aes(x=reorder(state, het.adj), y=het.adj, fill=malignant, color=malignant)) +
+  geom_violin() +
   scale_fill_manual(values = c("steelblue4", "grey20"))+
+  scale_color_manual(values = c("steelblue4", "grey20"))+
   labs(x="", y="epiCHAOS")+
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90))

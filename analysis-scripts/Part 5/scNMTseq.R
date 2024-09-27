@@ -35,17 +35,20 @@ for (i in c("met_promoter", "met_genebody", "met_cgi")) {
   for (celltype in na.omit(unique(nmt@colData$lineage10x_2))) {
     ids <- nmt@colData$cellID[nmt@colData$lineage10x_2==celltype]
     if (length(ids)<40) { next }
+    ncells <- min(c(50, length(ids)))
+    
+    
     datasets[[celltype]] <- temp[,colnames(temp) %in% ids]
   }
   
   #--- compute epiCHAOS scores
-  het <- compute.eITH(datasets)
+  het <- compute_eITH(datasets)
   het$group <- ifelse(het$state=="Epiblast", "epiblast", "other")
   het$state <- het$state %>% str_replace("_", " ")
   
   #--- save barplots
   het.list[[i]] <- het
-  gg[[i]] <- ggplot(het, aes(x = reorder(state, mean.het), y = mean.het+0.01, fill=group)) +
+  gg[[i]] <- ggplot(het, aes(x = reorder(state, het.adj), y = het.adj+0.01, fill=group)) +
     geom_bar(stat="identity", position = "dodge", alpha=0.8, width = 0.7)+
     scale_fill_manual(values = rev(c("black", "steelblue4")))+
     labs(x="", y="epiCHAOS")+
@@ -110,7 +113,7 @@ ggplot(het, aes(x=DNAm, y=ATAC, label=state)) +
   geom_smooth(color="lightsteelblue3", method="lm", se=F)+
   ggrepel::geom_text_repel(size=3)+
   lims(y=c(0, 1))+
-  #stat_cor()+
+  stat_cor()+
   labs( x="epiCHAOS (DNAm)", y="epiCHAOS (ATAC)", subtitle = paste0("R^2 = ", signif(summary(fit)$r.squared, 3))) +
   theme_classic()
 dev.off()

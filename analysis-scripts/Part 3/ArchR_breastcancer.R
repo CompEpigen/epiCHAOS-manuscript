@@ -288,10 +288,11 @@ saveArchRProject(ArchRProj = brca, load = FALSE)
 
 
 #--- downstream analysis on epithelial subsetted data
+setwd("epithelial/")
 
 #--- epigenetic heterogeneity analysis
 brca <- loadArchRProject()
-mat <- readRDS("peak_matrix.Rds")
+mat <- readRDS("peaks_matrix.Rds")
 dim(mat)
 
 colnames(mat) <- paste0(brca$Sample, "_", brca$cellNames)
@@ -310,7 +311,7 @@ for (i in clusters) {
 lapply(datasets, dim)
 
 #--- compute epiCHAOS scores
-het <- compute.eITH(datasets)
+het <- compute_eITH(datasets)
 
 
 #--- plot clusters and epiCHAOS scores in UMAP
@@ -328,9 +329,57 @@ p1 <- ggplot(temp, aes(x=UMAP1, y=UMAP2, color=Clusters)) +
   scale_color_manual(values = colors)+
   theme_classic()
 
-p2 <- ggplot(temp, aes(x=UMAP1, y=UMAP2, color=mean.het)) +
+p2 <- ggplot(temp, aes(x=UMAP1, y=UMAP2, color=het.adj)) +
   geom_point(size=0.1)+
   scale_color_distiller(palette = "Blues", direction = 1, na.value = "grey70")+
   theme_classic()
 
 ggarrange(p1,p2,ncol=2, widths = c(1, 1))
+
+
+#--- compute per-chromosome count-corrected epiCHAOS scores and perform subsampling of 5 x 100 cells per cluster
+setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial/")
+
+#--- load data
+brca <- loadArchRProject("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial")
+mat <- readRDS("/omics/groups/OE0219/internal/KatherineK/ATACseq/breast-cancer/epithelial/peaks_matrix.Rds")
+row.names <- mat@rowRanges %>% paste0()
+mat <- mat@assays@data$PeakMatrix
+rownames(mat) <- row.names
+dim(mat)
+mat[1:10,1:10]
+
+#--- clusters
+clusters <- brca$Clusters.epith %>% unique()
+
+set.seed(10)
+
+#--- create list of datasets
+datasets <- list()
+for (i in  clusters) {
+  print(i)
+  ids <- brca$cellNames[brca$Clusters.epith==i]
+  if (length(ids)<30) { next }
+  
+  #--- number of cells for subsampling
+  ncells <- min(c(100, length(ids)))
+  
+  #--- select 5 subsamples
+  for (n in 1:5) {
+    datasets[[paste0(i, "-", n)]] <- mat[,sample(ids, ncells)]
+  }
+}
+
+lapply(datasets, dim)
+
+#--- compute heterogeneity scores
+het <- compute_eITH.cancer(datasets)
+
+saveRDS(het, "epiCHAOS_scores_count_corrected_allpeaks_subsampling.Rds")
+
+
+het$state <- het$state %>% str_split("-") %>% laply("[", 1) %>% unlist()
+
+ggplot(het, aes(y=het, x=state)) +
+  geom_boxplot()+
+  theme_classic()

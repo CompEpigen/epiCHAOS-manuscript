@@ -1,6 +1,6 @@
 
 
-#--- test epiCHAOS in datasets from old vs young HSC
+#--- test epiCHAOS for comparison of old vs young HSC
 
 setwd("/omics/groups/OE0219/internal/KatherineK/ATACseq")
 
@@ -26,14 +26,22 @@ atac[atac > 0] <- 1  # make binary
 grouping <- colnames(atac) %>% str_split("\\.") %>% lapply("[", 1) %>% unlist()
 meta <- data.frame(row.names = colnames(atac), grouping=grouping)
 
+set.seed(10)
+
 #--- compute epiCHAOS scores
 het <- epiCHAOS(counts = atac, meta = meta, n = 100, subsample = 5)
 het$state <- rownames(het) %>% str_remove("group-") %>% str_split("-") %>% lapply("[", 1) %>% unlist()
+het$group <- ifelse(grepl("Young", het$state), "Young", "Old")
+
+saveRDS(het, file = "Aging/epiCHAOS_scores_subsampling.Rds")
 
 pdf("Aging/boxplot_epiCHAOS_young_vs_old_HSCs.pdf", 3, 4)
-ggplot(het, aes(y=het.adj, x=reorder(state, het.adj))) +
-  geom_boxplot(fill="honeydew3", color="black", linewidth=0.5)+
+svg("epiCHAOS-Figures/Figure 3/violinplot_epiCHAOS_young_vs_old_HSCs.svg", 4, 4)
+ggplot(het, aes(y=het.adj, x=reorder(state, het.adj), color=group, fill=group)) +
+  geom_violin(linewidth=0.5)+
   labs( x="", y="epiCHAOS") +
+  scale_fill_manual(values = c("steelblue4", "grey20"))+
+  scale_color_manual(values = c("steelblue4", "grey20"))+
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 dev.off()

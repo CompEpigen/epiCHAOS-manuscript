@@ -6,6 +6,8 @@ library(pheatmap)
 
 set.seed(10)
 
+source("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-analysis-scripts/epiCHAOS-functions/compute_epiCHAOS.R")
+
 #--- load scTAM data as seurat object downloaded from figshare
 scTAM <- readRDS("/omics/groups/OE0219/internal/KatherineK/data/scTAM/seurat_for_figshare.rds")
 
@@ -25,8 +27,33 @@ for (i in unique(scTAM@meta.data$CellType)) {
 
 lapply(datasets, dim)
 
+
+#--- repeat with subsampling approach, takin pseudoreplicates of 5 x 100 cells for clusters which have more cells
+datasets <- list()
+for (i in unique(scTAM@meta.data$CellType)) {
+  ids <- scTAM@meta.data[scTAM@meta.data$CellType==i,] %>% rownames()
+  print(length(ids))
+  
+  if (length(ids)>100) { 
+    for (n in 1:5) {
+      datasets[[paste0(i, "-", n)]] <- mat[,sample(ids, 100)]
+    }
+  } else {datasets[[i]] <- mat[,ids]}
+}
+
+lapply(datasets, dim)
+
+
 #--- compute epiCHAOS scores
 het <- compute.eITH(datasets)
+het$group <- het$state %>% str_split("-") %>% lapply("[", 1) %>% unlist()
+het$group[het$group=="pre/pro"] <- "pre/pro-B"
+
+#--- assign mean of subsamples
+for (i in unique(het$group)) {
+  het$mean[het$group==i] <- mean(het$mean.het[het$group==i])
+}
+
 
 # save scores
 #saveRDS(het, "epiCHAOS_scores.Rds")
@@ -35,7 +62,7 @@ het <- compute.eITH(datasets)
 
 #--- add annotation for epiCHAOS scores to metadata
 for (i in unique(het$state)) {
-  scTAM@meta.data$epiCHAOS[scTAM@meta.data$CellType==i] <- het$mean.het[het$state==i]
+  scTAM@meta.data$epiCHAOS[scTAM@meta.data$CellType==i] <- het$mean[het$group==i]
 }
 
 #--- plot cell types and heterogeneity scores in umaps & barplots

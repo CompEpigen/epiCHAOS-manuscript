@@ -66,3 +66,8 @@ ggplot(het, aes(y=het.adj, x=reorder(state, het.adj))) +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 dev.off()
+
+
+#--- write epiCHAOS scores to csv for supplementary tables
+het <- readRDS(het, file = "/omics/groups/OE0219/internal/KatherineK/ATACseq/Aging/epiCHAOS_scores_subsampling.Rds")
+write.csv(het, "/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-supplementary-data/Revision/epiCHAOS_HSC_aging_subsampling.csv")

@@ -1,6 +1,5 @@
 
-#--- 27th September 2023
-#--- comparison of eITH in old vs young HSCs from Itowaka et al. https://www.nature.com/articles/s41467-022-30440-2#Sec11
+#--- comparison of epigenetic heterogeneity in old vs young HSCs from Itowaka et al. https://www.nature.com/articles/s41467-022-30440-2#Sec11
 
 library(Signac)
 library(Seurat)

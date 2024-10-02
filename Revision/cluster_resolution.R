@@ -223,3 +223,49 @@ dev.off()
 pdf("epithelial/umaps_clustering_and_epiCHAOS_score_different_resolutions.pdf", 20, 10)
 ggpubr::ggarrange(plotlist = gg, nrow = 2, ncol=9, common.legend = T)
 dev.off()
+
+
+#--- read in the different clustering results
+het01 <- readRDS("epithelial/epiCHAOS_clusters01.Rds")
+het02 <- readRDS("epithelial/epiCHAOS_clusters02.Rds")
+het03 <- readRDS("epithelial/epiCHAOS_clusters03.Rds")
+het04 <- readRDS("epithelial/epiCHAOS_clusters04.Rds")
+het05 <- readRDS("epithelial/epiCHAOS_clusters05.Rds")
+het06 <- readRDS("epithelial/epiCHAOS_clusters06.Rds")
+het07 <- readRDS("epithelial/epiCHAOS_clusters07.Rds")
+het08 <- readRDS("epithelial/epiCHAOS_clusters08.Rds")
+het09 <- readRDS("epithelial/epiCHAOS_clusters09.Rds")
+
+
+#--- make umap plots colored by epiCHAOS score for different clustering resolutions
+het.res <- list(het.01=het01, het.02=het02, het.03=het03,
+                het.04=het04, het.05=het05, het.06=het06,
+                het.07=het07, het.08=het08, het.09=het09)
+
+compare.res <- data.frame(row.names = rownames(brca@cellColData))
+for (i in names(het.res)) {
+  print(i)
+  
+  # column name corresponing to clusters on that resolution
+  res <- i %>% str_replace("het", "Clusters")
+  
+  het.res[[i]]$state <- het.res[[i]]$state %>% str_split("-") %>% lapply("[", 1) %>% unlist()
+  
+  # mean heterogeneity score from subsamples per cluster
+  het <- het.res[[i]] %>% group_by(state) %>% summarise(mean=mean(het.adj))
+  
+  # add epiCHAOS column to project metadata
+  for (cluster in het$state) {
+    brca@cellColData$epiCHAOS[brca@cellColData[,res]==cluster] <- het$mean[het$state==cluster]
+  }
+  
+  compare.res[,i] <- brca@cellColData$epiCHAOS
+
+}
+
+compare.res
+colnames(compare.res) <- colnames(compare.res) %>% str_replace("het.0", "resolution 0.")
+
+pdf("/omics/groups/OE0219/internal/KatherineK/ATACseq/epiCHAOS-Figures/Supplementary/correlation_heatmap_compare_cluster_res.pdf")
+cor(compare.res) %>% pheatmap(display_numbers = T, treeheight_row = 0, treeheight_col = 0, cellwidth = 20, cellheight = 20, border_color = "grey90", color=brewer.pal(9, "Reds")[2:8], number_color = "black")
+dev.off()
